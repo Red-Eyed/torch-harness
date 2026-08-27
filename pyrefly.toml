@@ -1,0 +1,5 @@
+preset = "strict"
+project-includes = ["src", "tests"]
+project-excludes = [".venv", "build", "dist"]
+python-version = "3.11"
+search-path = ["src"]

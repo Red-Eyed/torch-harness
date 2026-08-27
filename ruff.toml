@@ -1,0 +1,24 @@
+line-length = 88
+src = ["src"]
+target-version = "py311"
+
+[lint]
+select = [
+    "ANN",
+    "B",
+    "D",
+    "E",
+    "F",
+    "I",
+    "PT",
+    "RUF",
+    "SIM",
+    "UP",
+    "W",
+]
+
+[lint.pydocstyle]
+convention = "google"
+
+[format]
+docstring-code-format = true
