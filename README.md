@@ -41,6 +41,35 @@ model = replace_layers(
 The traversal includes nested containers such as `Sequential`. Run replacement
 before constructing the optimizer, distributed wrappers, or a compiled model.
 
+## Fault-tolerant training steps
+
+`FaultTolerantTrainingStep` skips occasional exceptions and NaN or infinite losses
+before Lightning automatic optimization runs backward or updates the optimizer:
+
+```python
+from datetime import timedelta
+
+from lightning.pytorch import Trainer
+from torch_utils.lightning import FaultTolerantTrainingStep
+
+fault_tolerance = FaultTolerantTrainingStep(
+    max_faults=3,
+    fault_window=timedelta(hours=1),
+)
+trainer = Trainer(callbacks=[fault_tolerance])
+```
+
+This example skips the first three faults in any rolling one-hour window. A fourth
+fault within that window is logged through Loguru and propagated. Exceptions retain
+their original type and traceback; repeated non-finite losses raise
+`NonFiniteLossError`.
+
+Install the Lightning integration with `torch-utils[lightning]`.
+
+The callback intentionally supports only single-process automatic optimization.
+Errors raised during backward or `optimizer.step` happen after the recoverable
+boundary and are propagated because an optimizer update may already be partial.
+
 ## Planned utilities
 
 - A Lightning `PreciseBN` callback for recomputing BatchNorm running statistics.
