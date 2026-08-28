@@ -1,6 +1,6 @@
 """Reliable utilities for PyTorch and Lightning."""
 
-from torch_utils.safe_batch_norm import (
+from torch_utils.layers import (
     SafeBatchNorm1d,
     SafeBatchNorm2d,
     SafeBatchNorm3d,

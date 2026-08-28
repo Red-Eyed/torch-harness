@@ -8,7 +8,7 @@ Reliable, focused utilities for PyTorch and Lightning projects.
 running statistics.
 
 ```python
-from torch_utils import SafeBatchNorm2d
+from torch_utils.layers import SafeBatchNorm2d
 
 normalization = SafeBatchNorm2d(64)
 ```
@@ -20,6 +20,26 @@ a fault-tolerant training loop can catch to skip the step.
 
 `nn.SyncBatchNorm` is intentionally unsupported because a rank-local failure
 before its collective could deadlock the other ranks.
+
+## Runtime layer replacement
+
+`replace_layers` recursively transforms existing models through an explicit
+replacement factory:
+
+```python
+from torch import nn
+
+from torch_utils.runtime import replace_layers
+
+model = replace_layers(
+    model,
+    old_layer_cls=nn.SiLU,
+    replacement_factory=lambda silu: nn.ReLU(inplace=silu.inplace),
+)
+```
+
+The traversal includes nested containers such as `Sequential`. Run replacement
+before constructing the optimizer, distributed wrappers, or a compiled model.
 
 ## Planned utilities
 

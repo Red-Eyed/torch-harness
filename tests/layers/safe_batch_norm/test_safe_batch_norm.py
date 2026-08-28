@@ -1,21 +1,44 @@
 """Tests for BatchNorm layers that reject non-finite activations."""
 
+from collections.abc import Callable
 from copy import deepcopy
+from typing import cast
 
 import pytest
 import torch
 from torch import nn
 from torch.nn.modules.batchnorm import _BatchNorm
 
-from torch_utils import SafeBatchNorm1d, SafeBatchNorm2d, SafeBatchNorm3d
+from torch_utils.layers import SafeBatchNorm1d, SafeBatchNorm2d, SafeBatchNorm3d
 
 BatchNormType = type[_BatchNorm]
+BatchNormConverter = Callable[[_BatchNorm], _BatchNorm]
 
 BATCH_NORM_CASES: tuple[tuple[BatchNormType, BatchNormType, tuple[int, ...]], ...] = (
     (nn.BatchNorm1d, SafeBatchNorm1d, (4, 3)),
     (nn.BatchNorm1d, SafeBatchNorm1d, (4, 3, 5)),
     (nn.BatchNorm2d, SafeBatchNorm2d, (4, 3, 5, 7)),
     (nn.BatchNorm3d, SafeBatchNorm3d, (4, 3, 2, 5, 7)),
+)
+
+CONVERSION_CASES: tuple[
+    tuple[BatchNormType, BatchNormType, BatchNormConverter], ...
+] = (
+    (
+        nn.BatchNorm1d,
+        SafeBatchNorm1d,
+        cast(BatchNormConverter, SafeBatchNorm1d.from_batch_norm),
+    ),
+    (
+        nn.BatchNorm2d,
+        SafeBatchNorm2d,
+        cast(BatchNormConverter, SafeBatchNorm2d.from_batch_norm),
+    ),
+    (
+        nn.BatchNorm3d,
+        SafeBatchNorm3d,
+        cast(BatchNormConverter, SafeBatchNorm3d.from_batch_norm),
+    ),
 )
 
 
@@ -87,6 +110,70 @@ def test_non_finite_forward_preserves_running_stats(
 
     _assert_running_stats_equal(safe_batch_norm, expected_state)
     assert isinstance(safe_batch_norm, batch_norm_factory)
+
+
+@pytest.mark.parametrize(
+    ("batch_norm_factory", "safe_batch_norm_factory", "converter"),
+    CONVERSION_CASES,
+)
+def test_from_batch_norm_preserves_configuration_and_state(
+    batch_norm_factory: BatchNormType,
+    safe_batch_norm_factory: BatchNormType,
+    converter: BatchNormConverter,
+) -> None:
+    """Verify explicit conversion rebuilds all persistent BatchNorm behavior."""
+    source = batch_norm_factory(
+        3,
+        eps=0.02,
+        momentum=None,
+        dtype=torch.float64,
+    )
+    assert source.weight is not None
+    assert source.bias is not None
+    assert source.running_mean is not None
+    assert source.running_var is not None
+    assert source.num_batches_tracked is not None
+    source.eval()
+    source.weight.requires_grad_(False)
+    source.bias.requires_grad_(False)
+    with torch.no_grad():
+        source.weight.copy_(torch.tensor([1.0, 2.0, 3.0]))
+        source.bias.copy_(torch.tensor([4.0, 5.0, 6.0]))
+        source.running_mean.copy_(torch.tensor([7.0, 8.0, 9.0]))
+        source.running_var.copy_(torch.tensor([10.0, 11.0, 12.0]))
+        source.num_batches_tracked.fill_(13)
+
+    converted = converter(source)
+
+    assert type(converted) is safe_batch_norm_factory
+    assert converted is not source
+    assert converted.weight is not source.weight
+    assert converted.num_features == source.num_features
+    assert converted.eps == source.eps
+    assert converted.momentum == source.momentum
+    assert converted.affine == source.affine
+    assert converted.track_running_stats == source.track_running_stats
+    assert converted.training == source.training
+    assert converted.weight.requires_grad == source.weight.requires_grad
+    assert converted.bias.requires_grad == source.bias.requires_grad
+    _assert_running_stats_equal(converted, source)
+    torch.testing.assert_close(converted.weight, source.weight)
+    torch.testing.assert_close(converted.bias, source.bias)
+
+
+def test_from_batch_norm_without_persistent_state() -> None:
+    """Verify conversion supports layers with no parameters or running state."""
+    source = nn.BatchNorm2d(3, affine=False, track_running_stats=False)
+
+    converted = SafeBatchNorm2d.from_batch_norm(source)
+
+    assert converted.affine is False
+    assert converted.track_running_stats is False
+    assert converted.weight is None
+    assert converted.bias is None
+    assert converted.running_mean is None
+    assert converted.running_var is None
+    assert converted.num_batches_tracked is None
 
 
 def test_eval_forward_rejects_non_finite_input() -> None:

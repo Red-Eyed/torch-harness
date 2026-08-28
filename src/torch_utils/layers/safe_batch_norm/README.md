@@ -5,7 +5,7 @@ classes and rejects a faulty input before it can change the running mean,
 running variance, or batch counter.
 
 ```python
-from torch_utils import SafeBatchNorm2d
+from torch_utils.layers import SafeBatchNorm2d
 
 normalization = SafeBatchNorm2d(64)
 ```
@@ -13,6 +13,21 @@ normalization = SafeBatchNorm2d(64)
 A forward input containing a NaN or infinity raises `FloatingPointError`. A
 fault-tolerant training loop can catch that exception and skip the step without
 retaining corrupted BatchNorm statistics.
+
+Existing BatchNorm layers can be rebuilt safely before optimizer construction:
+
+```python
+from torch import nn
+
+from torch_utils.layers import SafeBatchNorm2d
+from torch_utils.runtime import replace_layers
+
+model = replace_layers(
+    model,
+    old_layer_cls=nn.BatchNorm2d,
+    replacement_factory=SafeBatchNorm2d.from_batch_norm,
+)
+```
 
 ## Architecture
 
