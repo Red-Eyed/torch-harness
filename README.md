@@ -1,6 +1,13 @@
 # torch-utils
 
-Reliable, focused utilities for PyTorch and Lightning projects.
+An intentionally uncategorized collection of utilities for PyTorch modeling
+experiments. It is a toolbox rather than a single framework: utilities are added
+as experimental needs arise, without forcing them into an artificial hierarchy.
+
+Each utility is modular and self-contained. It owns its implementation and tests,
+avoids assumptions about the surrounding project, and can be used independently
+of the other utilities. Optional framework integrations remain isolated so they
+do not add dependencies to the core package.
 
 ## SafeBatchNorm
 

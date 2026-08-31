@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-08-31
+
+### Documentation
+
+- Clarify that `torch-utils` is a modular toolbox for independent PyTorch modeling
+  utilities rather than a single framework or fixed component hierarchy.
+
 ## [0.4.0] - 2026-08-28
 
 ### New Features
