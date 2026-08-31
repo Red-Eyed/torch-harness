@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Backwards Incompatible Changes
+
+#### Package identity
+
+##### Rename the distribution and import namespace
+
+The distribution is now `torch-harness`, and Python imports move from
+`torch_utils` to `torch_harness`. Replace the old package name in dependency
+configuration and update imports when upgrading.
+
 ### New Features
 
 - Add `FileModelStructure` to save the recursive structure produced by

@@ -15,8 +15,8 @@ from loguru import logger
 from torch.utils.data import DataLoader, TensorDataset
 from typing_extensions import override
 
-from torch_utils.lightning import FaultTolerantTrainingStep, NonFiniteLossError
-from torch_utils.lightning.fault_tolerant import _RollingFaultBudget
+from torch_harness.lightning import FaultTolerantTrainingStep, NonFiniteLossError
+from torch_harness.lightning.fault_tolerant import _RollingFaultBudget
 
 
 class _TrainerStub:

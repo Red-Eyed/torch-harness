@@ -7,7 +7,7 @@ nested custom modules.
 ```python
 from torch import nn
 
-from torch_utils.runtime import replace_layers
+from torch_harness.runtime import replace_layers
 
 model = replace_layers(
     model,

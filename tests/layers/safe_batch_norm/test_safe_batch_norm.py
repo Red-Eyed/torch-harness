@@ -9,7 +9,7 @@ import torch
 from torch import nn
 from torch.nn.modules.batchnorm import _BatchNorm
 
-from torch_utils.layers import SafeBatchNorm1d, SafeBatchNorm2d, SafeBatchNorm3d
+from torch_harness.layers import SafeBatchNorm1d, SafeBatchNorm2d, SafeBatchNorm3d
 
 BatchNormType = type[_BatchNorm]
 BatchNormConverter = Callable[[_BatchNorm], _BatchNorm]

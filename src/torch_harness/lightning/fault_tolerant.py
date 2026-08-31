@@ -94,7 +94,7 @@ class FaultTolerantTrainingStep(Callback):
 
         >>> from datetime import timedelta
         >>> from lightning.pytorch import Trainer
-        >>> from torch_utils.lightning import FaultTolerantTrainingStep
+        >>> from torch_harness.lightning import FaultTolerantTrainingStep
         >>> fault_tolerance = FaultTolerantTrainingStep(
         ...     max_faults=3,
         ...     fault_window=timedelta(hours=1),

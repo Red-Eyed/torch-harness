@@ -1301,8 +1301,8 @@ wheels = [
 ]
 
 [[package]]
-name = "torch-utils"
-version = "0.5.0"
+name = "torch-harness"
+version = "0.6.0"
 source = { editable = "." }
 dependencies = [
     { name = "loguru" },

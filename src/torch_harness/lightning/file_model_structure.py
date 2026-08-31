@@ -32,7 +32,7 @@ class FileModelStructure(Callback):
 
             >>> from pathlib import Path
             >>> from lightning.pytorch import Trainer
-            >>> from torch_utils.lightning import FileModelStructure
+            >>> from torch_harness.lightning import FileModelStructure
             >>> structure = FileModelStructure(
             ...     output_path=Path("artifacts/model-structure.txt"),
             ... )

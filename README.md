@@ -1,4 +1,4 @@
-# torch-utils
+# torch-harness
 
 An intentionally uncategorized collection of utilities for PyTorch modeling
 experiments. It is a toolbox rather than a single framework: utilities are added
@@ -15,7 +15,7 @@ do not add dependencies to the core package.
 running statistics.
 
 ```python
-from torch_utils.layers import SafeBatchNorm2d
+from torch_harness.layers import SafeBatchNorm2d
 
 normalization = SafeBatchNorm2d(64)
 ```
@@ -36,7 +36,7 @@ replacement factory:
 ```python
 from torch import nn
 
-from torch_utils.runtime import replace_layers
+from torch_harness.runtime import replace_layers
 
 model = replace_layers(
     model,
@@ -57,7 +57,7 @@ before Lightning automatic optimization runs backward or updates the optimizer:
 from datetime import timedelta
 
 from lightning.pytorch import Trainer
-from torch_utils.lightning import FaultTolerantTrainingStep
+from torch_harness.lightning import FaultTolerantTrainingStep
 
 fault_tolerance = FaultTolerantTrainingStep(
     max_faults=3,
@@ -71,7 +71,7 @@ fault within that window is logged through Loguru and propagated. Exceptions ret
 their original type and traceback; repeated non-finite losses raise
 `NonFiniteLossError`.
 
-Install the Lightning integration with `torch-utils[lightning]`.
+Install the Lightning integration with `torch-harness[lightning]`.
 
 The callback intentionally supports only single-process automatic optimization.
 Errors raised during backward or `optimizer.step` happen after the recoverable
@@ -86,7 +86,7 @@ readable UTF-8 text when fitting starts:
 from pathlib import Path
 
 from lightning.pytorch import Trainer
-from torch_utils.lightning import FileModelStructure
+from torch_harness.lightning import FileModelStructure
 
 structure = FileModelStructure(
     output_path=Path("artifacts/model-structure.txt"),
@@ -111,4 +111,4 @@ Each integration will be isolated so users only install the frameworks they need
 
 ## License
 
-`torch-utils` is released under the MIT License.
+`torch-harness` is released under the MIT License.

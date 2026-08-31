@@ -5,7 +5,7 @@ from typing import cast
 import pytest
 from torch import nn
 
-from torch_utils.runtime import replace_layers
+from torch_harness.runtime import replace_layers
 
 
 def _relu_from_silu(silu: nn.SiLU) -> nn.Module:

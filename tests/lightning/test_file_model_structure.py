@@ -10,7 +10,7 @@ from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 from typing_extensions import override
 
-from torch_utils.lightning import FileModelStructure
+from torch_harness.lightning import FileModelStructure
 
 
 class _StructureModel(LightningModule):

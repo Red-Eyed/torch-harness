@@ -40,7 +40,7 @@ def replace_layers(
         Replace SiLU activations throughout a nested model::
 
             >>> from torch import nn
-            >>> from torch_utils.runtime import replace_layers
+            >>> from torch_harness.runtime import replace_layers
             >>> model = nn.Sequential(nn.SiLU(), nn.Sequential(nn.SiLU()))
             >>> model = replace_layers(
             ...     model,

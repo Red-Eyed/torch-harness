@@ -1,6 +1,6 @@
 [project]
-name = "torch-utils"
-version = "0.5.0"
+name = "torch-harness"
+version = "0.6.0"
 description = "Reliable utilities for PyTorch and Lightning"
 readme = "README.md"
 authors = [
@@ -28,8 +28,8 @@ keywords = ["lightning", "machine-learning", "pytorch", "torch"]
 lightning = ["lightning>=2.6,<3"]
 
 [project.urls]
-Repository = "https://github.com/Red-Eyed/torch-utils"
-Issues = "https://github.com/Red-Eyed/torch-utils/issues"
+Repository = "https://github.com/Red-Eyed/torch-harness"
+Issues = "https://github.com/Red-Eyed/torch-harness/issues"
 
 [build-system]
 requires = ["uv_build>=0.12.1,<0.13.0"]
