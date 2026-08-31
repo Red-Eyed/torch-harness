@@ -77,6 +77,31 @@ The callback intentionally supports only single-process automatic optimization.
 Errors raised during backward or `optimizer.step` happen after the recoverable
 boundary and are propagated because an optimizer update may already be partial.
 
+## Model structures in files
+
+`FileModelStructure` saves the recursive structure produced by `print(model)` as
+readable UTF-8 text when fitting starts:
+
+```python
+from pathlib import Path
+
+from lightning.pytorch import Trainer
+from torch_utils.lightning import FileModelStructure
+
+structure = FileModelStructure(
+    output_path=Path("artifacts/model-structure.txt"),
+)
+trainer = Trainer(callbacks=[structure])
+```
+
+The callback includes the complete registered module hierarchy without requiring
+example inputs or running a forward pass. It creates parent directories, replaces
+an existing structure file, and writes only from the global-zero process. Runtime
+tensor operations that are not registered modules do not appear.
+
+Run `uv run examples/file_model_structure.py` to generate an inspectable example
+at `examples/model-structure.txt`.
+
 ## Planned utilities
 
 - A Lightning `PreciseBN` callback for recomputing BatchNorm running statistics.
