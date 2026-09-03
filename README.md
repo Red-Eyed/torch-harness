@@ -9,6 +9,28 @@ avoids assumptions about the surrounding project, and can be used independently
 of the other utilities. Optional framework integrations remain isolated so they
 do not add dependencies to the core package.
 
+## SuperLoss
+
+`SuperLoss` applies robust curriculum weighting to any unreduced task loss:
+
+```python
+from math import log
+
+import torch.nn.functional as F
+
+from torch_harness.losses import SuperLoss
+
+criterion = SuperLoss(threshold=log(10), regularization=1.0)
+task_loss = F.cross_entropy(logits, targets, reduction="none")
+loss = criterion(task_loss)
+```
+
+It computes the closed-form optimal sample confidence from the SuperLoss paper,
+upweighting easy samples and downweighting hard samples. The implementation is
+task-agnostic, runs entirely in PyTorch, and has no SciPy or per-sample-state
+dependency. See the [component documentation](src/torch_harness/losses/super_loss/README.md)
+for parameter guidance and numerical details.
+
 ## SafeBatchNorm
 
 `SafeBatchNorm` rejects a non-finite activation before it can corrupt BatchNorm

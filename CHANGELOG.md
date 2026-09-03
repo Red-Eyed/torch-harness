@@ -16,6 +16,8 @@ configuration and update imports when upgrading.
 
 - Add `FileModelStructure` to save the recursive structure produced by
   `print(model)` as a readable UTF-8 file when fitting starts.
+- Add `SuperLoss` for applying robust curriculum weighting to arbitrary unreduced
+  PyTorch losses, with standard `none`, `mean`, and `sum` reductions.
 
 ## [0.4.1] - 2026-08-31
 

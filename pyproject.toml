@@ -1,13 +1,18 @@
 [project]
 name = "torch-harness"
-version = "0.6.0"
+version = "0.7.0"
 description = "Reliable utilities for PyTorch and Lightning"
 readme = "README.md"
 authors = [
     { name = "Vadym Stupakov", email = "vadim.stupakov@gmail.com" },
 ]
 requires-python = ">=3.11"
-dependencies = ["loguru>=0.7", "torch>=2.0", "typing-extensions>=4.4"]
+dependencies = [
+    "jaxtyping>=0.3.11",
+    "loguru>=0.7",
+    "torch>=2.0",
+    "typing-extensions>=4.4",
+]
 license = "MIT"
 license-files = ["LICENSE"]
 classifiers = [
@@ -41,4 +46,5 @@ dev = [
     "pyrefly>=1.2.0",
     "pytest>=9.1.1",
     "ruff>=0.16.4",
+    "scipy>=1.17.1",
 ]
