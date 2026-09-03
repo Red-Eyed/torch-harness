@@ -16,6 +16,8 @@ select = [
     "UP",
     "W",
 ]
+# jaxtyping shape strings are not Python forward annotations.
+ignore = ["F722", "F821"]
 
 [lint.pydocstyle]
 convention = "google"

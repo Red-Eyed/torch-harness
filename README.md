@@ -9,6 +9,27 @@ avoids assumptions about the surrounding project, and can be used independently
 of the other utilities. Optional framework integrations remain isolated so they
 do not add dependencies to the core package.
 
+## Uncertainty weighting
+
+`UncertaintyWeighting` learns positive weights for a vector of peer task losses:
+
+```python
+import torch
+
+from torch_harness.losses import UncertaintyWeighting
+
+weighting = UncertaintyWeighting(num_tasks=3)
+task_losses = torch.stack((classification_loss, depth_loss, normal_loss))
+loss = weighting(task_losses)
+weights_for_logging = weighting.effective_weights
+```
+
+Each effective weight starts near one and adapts jointly with the model. The
+module preserves gradients to the input task losses and its uncertainty
+parameters, while the weights exposed for logging are detached. See the
+[component documentation](src/torch_harness/losses/uncertainty_weighting/README.md)
+for the exact objective, optimizer wiring, numerical behavior, and limitations.
+
 ## SuperLoss
 
 `SuperLoss` applies robust curriculum weighting to any unreduced task loss:

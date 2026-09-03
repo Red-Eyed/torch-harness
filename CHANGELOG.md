@@ -18,6 +18,9 @@ configuration and update imports when upgrading.
   `print(model)` as a readable UTF-8 file when fitting starts.
 - Add `SuperLoss` for applying robust curriculum weighting to arbitrary unreduced
   PyTorch losses, with standard `none`, `mean`, and `sum` reductions.
+- Add `UncertaintyWeighting` to learn positive homoscedastic uncertainty weights
+  for a rank-one tensor of peer task losses, with detached monitoring weights and
+  float32 calculation under autocast.
 
 ## [0.4.1] - 2026-08-31
 
