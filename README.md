@@ -9,6 +9,28 @@ avoids assumptions about the surrounding project, and can be used independently
 of the other utilities. Optional framework integrations remain isolated so they
 do not add dependencies to the core package.
 
+## Adaptive loss balancing
+
+`LossBalancer` adapts named auxiliary weights from shared gradient norms while
+keeping the primary loss weight exactly one:
+
+```python
+from torch_harness.losses import LossBalancer, LossTarget, weighted_loss
+
+balancer = LossBalancer(
+    reference="primary",
+    adaptive={"auxiliary": LossTarget(ratio=0.3, initial_weight=0.1)},
+)
+weights = balancer.update(losses, shared=shared_features, step=global_step)
+total_loss = weighted_loss(losses, weights)
+```
+
+It supports independent targets, fixed weights, optional losses, periodic EMA
+updates, checkpoint continuation, and synchronized DDP activation measurements.
+See the [component documentation](src/torch_harness/losses/adaptive_balancing/README.md)
+for stability controls, diagnostics, and training integration. Run
+`uv run examples/adaptive_loss_balancing.py` for a synthetic optimization example.
+
 ## Uncertainty weighting
 
 `UncertaintyWeighting` learns positive weights for a vector of peer task losses:

@@ -1,6 +1,6 @@
 [project]
 name = "torch-harness"
-version = "0.8.0"
+version = "0.9.0"
 description = "Reliable utilities for PyTorch and Lightning"
 readme = "README.md"
 authors = [
