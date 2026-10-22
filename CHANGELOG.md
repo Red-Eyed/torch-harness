@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.1]
+
+### Developers
+
+- Add `just build` to build wheel and source distributions, and `just all` to
+  install locked dependencies, run the CI quality checks, and build artifacts.
+
 ## [0.10.0]
 
 ### New Features
