@@ -167,6 +167,31 @@ tensor operations that are not registered modules do not appear.
 Run `uv run examples/file_model_structure.py` to generate an inspectable example
 at `examples/model-structure.txt`.
 
+## Human-readable ONNX graphs
+
+Install `torch-harness[onnx]` to save module summaries suitable for Git diffs
+and Meld:
+
+```python
+from pathlib import Path
+
+import onnx
+
+from torch_harness.onnx import write_text_graph
+
+model = onnx.load("model.onnx")
+write_text_graph(model, Path("artifacts/model.onnx.txt"))
+```
+
+Summaries show operation signatures and counts, attributes, small constants,
+parameter shapes, and input/output dimensions. They omit temporary node indexes
+and weight payloads, making RMSNorm decomposition versus `RMSNormalization`
+visible without renumbering unrelated operations. Internal wiring is omitted.
+
+See the [ONNX documentation](src/torch_harness/onnx/README.md) for source module
+capture, shape inference, and format limitations. Run
+`uv run --extra onnx examples/onnx_text_graph.py` for a small example.
+
 ## Planned utilities
 
 - A Lightning `PreciseBN` callback for recomputing BatchNorm running statistics.

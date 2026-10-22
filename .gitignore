@@ -6,6 +6,7 @@ dist/
 wheels/
 *.egg-info
 examples/model-structure.txt
+examples/onnx_text_graph.txt
 
 # Virtual environments
 .venv

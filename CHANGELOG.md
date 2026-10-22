@@ -1,6 +1,17 @@
 # Changelog
 
-## [Unreleased]
+## [0.10.0]
+
+### New Features
+
+- Add the optional `torch-harness[onnx]` integration with `format_text_graph`,
+  `collect_source_scopes`, and `write_text_graph`. Summaries group operations by
+  source module and show signatures, counts, attributes, constants, and tensor
+  dimensions without temporary node indexes or weight payloads.
+- Infer shapes when writing text summaries, preserving the caller's ONNX model
+  and keeping ONNX outside the base package dependencies.
+
+## [0.9.0]
 
 ### Backwards Incompatible Changes
 
