@@ -5,5 +5,11 @@ from torch_harness.lightning.fault_tolerant import (
     NonFiniteLossError,
 )
 from torch_harness.lightning.file_model_structure import FileModelStructure
+from torch_harness.lightning.flop_counter import FlopCounter
 
-__all__ = ["FaultTolerantTrainingStep", "FileModelStructure", "NonFiniteLossError"]
+__all__ = [
+    "FaultTolerantTrainingStep",
+    "FileModelStructure",
+    "FlopCounter",
+    "NonFiniteLossError",
+]

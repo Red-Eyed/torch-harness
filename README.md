@@ -167,6 +167,28 @@ tensor operations that are not registered modules do not appear.
 Run `uv run examples/file_model_structure.py` to generate an inspectable example
 at `examples/model-structure.txt`.
 
+## Training FLOPs
+
+`FlopCounter` measures selected real training batches through PyTorch's operator
+formulas, without replaying the model:
+
+```python
+from lightning.pytorch import Trainer
+from torch_harness.lightning import FlopCounter
+
+counter = FlopCounter(every_n_batches=100, max_batches=5)
+trainer = Trainer(callbacks=[counter])
+```
+
+Install `torch-harness[lightning]`. Reports separate batch, backward, and
+non-backward FLOPs per rank. Partitioned window attention is counted from its
+actual operator shapes; custom operator formulas can extend coverage. Unsupported
+operations may contribute zero. Compiled modules and higher-order operators are
+unsupported and rejected during measurement.
+
+See the [counting documentation](src/torch_harness/flops/README.md) for sampling,
+manual optimization, distributed scope, extension contracts, and limitations.
+
 ## Human-readable ONNX graphs
 
 Install `torch-harness[onnx]` to save module summaries suitable for Git diffs

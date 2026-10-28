@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.11.0]
+
+### New Features
+
+- Add `FlopCounter`, a Lightning callback sampling real training batches with
+  per-rank batch, backward, and non-backward FLOP reports and local custom
+  operator formulas. Counting uses PyTorch's theoretical operator formulas;
+  unsupported ordinary operations may contribute zero. Compiled modules and
+  higher-order operators are rejected to preserve execution semantics.
+- Add framework-independent immutable FLOP reports and pure report construction.
+
 ## [0.10.1]
 
 ### Developers
