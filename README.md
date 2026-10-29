@@ -233,27 +233,33 @@ tensor operations that are not registered modules do not appear.
 Run `uv run examples/file_model_structure.py` to generate an inspectable example
 at `examples/model-structure.txt`.
 
-## Training FLOPs
+## Forward FLOPs
 
-`FlopCounter` measures selected real training batches through PyTorch's operator
-formulas, without replaying the model:
+`FlopCounter` measures only the first model forward in the first real training
+batch, once per fit, without replaying the model:
 
 ```python
 from lightning.pytorch import Trainer
 from torch_harness.lightning import FlopCounter
 
-counter = FlopCounter(every_n_batches=100, max_batches=5)
+counter = FlopCounter()
 trainer = Trainer(callbacks=[counter])
 ```
 
-Install `torch-harness[lightning]`. Reports separate batch, backward, and
-non-backward FLOPs per rank. Partitioned window attention is counted from its
-actual operator shapes; custom operator formulas can extend coverage. Unsupported
-operations may contribute zero. Compiled modules and higher-order operators are
-unsupported and rejected during measurement.
+Install `torch-harness[lightning]`. By default, `training_step` must invoke the
+LightningModule as `self(inputs)`. If it calls an inner model directly, select
+it with `FlopCounter(module=model.network)`. Loss outside forward, backward,
+optimizer updates, and later forwards are excluded. Reports include total forward
+FLOPs, observed input shapes, the assumed batch size, and the convention that one
+multiply-add counts as two FLOPs. Counts describe the whole observed input; use
+batch size one for a per-image paper figure. The model's mode is unchanged.
 
-See the [counting documentation](src/torch_harness/flops/README.md) for sampling,
-manual optimization, distributed scope, extension contracts, and limitations.
+Partitioned window attention counts from its actual operator shapes; custom
+formulas can extend coverage. Unsupported operations may contribute zero.
+Compiled modules and higher-order operators are rejected during measurement.
+
+See the [counting documentation](src/torch_harness/flops/README.md) for the forward
+boundary, paper reporting, distributed scope, extension contracts, and limitations.
 
 ## Human-readable ONNX graphs
 

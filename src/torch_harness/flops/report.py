@@ -1,4 +1,4 @@
-"""Pure transformations of PyTorch's global operator FLOP counts."""
+"""Pure transformations of PyTorch's global forward operator FLOP counts."""
 
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -7,41 +7,44 @@ from typing import Literal
 
 @dataclass(frozen=True)
 class UnmeasuredFlops:
-    """Explain why a completed batch report is not available yet."""
+    """Explain why a completed forward report is not available yet."""
 
-    reason: Literal["no_complete_batch"] = "no_complete_batch"
+    reason: Literal["no_complete_forward"] = "no_complete_forward"
 
 
 @dataclass(frozen=True)
 class FlopReport:
-    """Immutable per-rank arithmetic counts for one measured training batch.
+    """Immutable theoretical FLOPs for one observed model forward on one rank.
 
-    Backward includes checkpoint recomputation. Non-backward includes all other
-    counted work between batch hooks, including optimizer work when supported.
-    Operator rows contain only PyTorch's Global counts, avoiding module overlap.
+    Input shapes follow positional then keyword tensor encounter order. Batch
+    size follows the first non-scalar tensor's leading dimension, or one when
+    none exists. This convention must be checked for non-batch-first models.
+    Counts describe the whole observed input, not automatically one sample.
     """
 
-    batch_flops: int
-    backward_flops: int
+    forward_flops: int
+    input_shapes: tuple[tuple[int, ...], ...]
+    batch_size: int
     operator_flops: tuple[tuple[str, int], ...]
-
-    @property
-    def non_backward_flops(self) -> int:
-        """Return arithmetic outside the observed backward regions."""
-        return self.batch_flops - self.backward_flops
+    multiply_add_flops: Literal[2] = 2
 
 
 def summarize_flops(
-    counts: Mapping[str, int], *, backward_flops: int = 0
+    counts: Mapping[str, int], *, input_shapes: tuple[tuple[int, ...], ...] = ()
 ) -> FlopReport:
-    """Validate global operator counts and produce a deterministic report.
+    """Validate global counts and build a deterministic forward report.
+
+    Module totals must not be summed into counts because their attribution
+    overlaps. Input shapes are metadata only; no tensors are retained.
 
     Raises:
-        ValueError: If counts are negative or backward exceeds the batch total.
+        ValueError: If an operator count or input dimension is negative.
     """
     if any(value < 0 for value in counts.values()):
         raise ValueError("Operator FLOPs must be nonnegative")
-    total = sum(counts.values())
-    if not 0 <= backward_flops <= total:
-        raise ValueError("Backward FLOPs must be between zero and batch FLOPs")
-    return FlopReport(total, backward_flops, tuple(sorted(counts.items())))
+    if any(dimension < 0 for shape in input_shapes for dimension in shape):
+        raise ValueError("Input dimensions must be nonnegative")
+    batch_size = next((shape[0] for shape in input_shapes if shape), 1)
+    return FlopReport(
+        sum(counts.values()), input_shapes, batch_size, tuple(sorted(counts.items()))
+    )

@@ -1,27 +1,37 @@
-"""Tests for pure arithmetic report construction."""
+"""Tests for pure forward report construction."""
 
 import pytest
 
 from torch_harness.flops import summarize_flops
 
 
-def test_report_is_sorted_and_separates_backward() -> None:
-    """Preserve operator totals without conflating backward with other work."""
+def test_report_is_sorted_and_retains_input_metadata() -> None:
+    """Preserve global operator totals and the observed batch convention."""
     counts = {"z": 12, "a": 8}
-    report = summarize_flops(counts, backward_flops=12)
+    report = summarize_flops(counts, input_shapes=((2, 4), (2,)))
     counts["z"] = 0
-    assert report.batch_flops == 20
-    assert report.non_backward_flops == 8
+    assert report.forward_flops == 20
+    assert report.input_shapes == ((2, 4), (2,))
+    assert report.batch_size == 2
+    assert report.multiply_add_flops == 2
     assert report.operator_flops == (("a", 8), ("z", 12))
 
 
-@pytest.mark.parametrize(("count", "backward"), [(-1, 0), (1, -1), (1, 2)])
-def test_invalid_counts(count: int, backward: int) -> None:
-    """Reject inconsistent arithmetic rather than emitting misleading metrics."""
+def test_invalid_counts() -> None:
+    """Reject negative arithmetic rather than emitting misleading metrics."""
     with pytest.raises(ValueError, match="FLOPs"):
-        summarize_flops({"mm": count}, backward_flops=backward)
+        summarize_flops({"mm": -1})
 
 
-def test_empty_report() -> None:
-    """Allow zero supported arithmetic without claiming full coverage."""
-    assert summarize_flops({}).batch_flops == 0
+def test_invalid_input_dimensions() -> None:
+    """Reject dimensions that cannot describe observed inputs."""
+    with pytest.raises(ValueError, match="dimensions"):
+        summarize_flops({}, input_shapes=((-1, 4),))
+
+
+@pytest.mark.parametrize("shapes", [(), ((),)])
+def test_no_batched_input(shapes: tuple[tuple[int, ...], ...]) -> None:
+    """Use a single invocation convention for no tensor inputs or scalar inputs."""
+    report = summarize_flops({}, input_shapes=shapes)
+    assert report.forward_flops == 0
+    assert report.batch_size == 1

@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.15.0]
+
+### Backwards Incompatible Changes
+
+- Make `FlopCounter` measure only the first model forward in the first training
+  batch, once per fit. Remove `every_n_batches` and `max_batches`; use
+  `FlopCounter()` instead. Loss outside forward, backward, and optimizer work
+  are excluded. Select `module=model.network` if training calls an inner model
+  instead of the LightningModule through `self(...)`.
+- Replace `FlopReport.batch_flops`, `backward_flops`, and `non_backward_flops`
+  with `forward_flops`, `input_shapes`, `batch_size`, and `multiply_add_flops`.
+  Remove `summarize_flops(backward_flops=...)`; input metadata is supplied via
+  `input_shapes=...`. The unmeasured reason is now `no_complete_forward`.
+- Replace batch and backward logger metrics with a single `flops/forward`
+  record sent directly to configured loggers. It does not populate Lightning's
+  callback metrics or repeat across training steps.
+
 ## [0.14.0]
 
 ### Backwards Incompatible Changes

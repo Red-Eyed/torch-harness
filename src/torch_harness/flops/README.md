@@ -1,103 +1,117 @@
-# Training FLOP measurement
+# One-shot forward FLOPs
 
-`FlopCounter` samples actual Lightning training batches without replaying forward
-passes or constructing example inputs:
+`FlopCounter` measures the first model forward in the first real Lightning
+training batch, once per fit. It observes existing execution without replaying
+inputs, changing model mode, or performing an additional forward pass:
 
 ```python
+import torch_harness as th
 from lightning.pytorch import Trainer
-from torch_harness.flops import FlopReport
-from torch_harness.lightning import FlopCounter
 
-counter = FlopCounter(every_n_batches=100, max_batches=5)
+counter = th.FlopCounter()
 trainer = Trainer(callbacks=[counter])
 # trainer.fit(model, train_dataloaders=loader)
-if isinstance(counter.latest_report, FlopReport):
+if isinstance(counter.latest_report, th.FlopReport):
     report = counter.latest_report
-    print(report.batch_flops, report.backward_flops)
+    print(report.forward_flops, report.input_shapes, report.batch_size)
 ```
 
-Install `torch-harness[lightning]`. This callback additionally requires a PyTorch
+Install `torch-harness[lightning]`. The callback additionally requires a PyTorch
 version providing `torch.utils.flop_counter.FlopCounterMode`; other utilities
-remain importable without that module. Measurement is for eager execution.
+remain importable without that module.
 
-## What is counted
+## Measurement boundary
 
-The callback activates PyTorch's operator counter between its training batch-start
-and batch-end hooks, on each rank independently. `latest_report` contains exact
-integer totals under the backend's registered formulas:
+By default, hooks observe `LightningModule.__call__`, so training_step should
+invoke the model as `self(inputs)`. For code that calls a nested model directly,
+select it explicitly:
 
-- `batch_flops`: all supported arithmetic observed during the sampled batch.
-- `backward_flops`: arithmetic between Lightning's before/after-backward hooks,
-  summed over backward calls, including activation-checkpoint recomputation.
-- `non_backward_flops`: the remainder, including forward, loss computation, and
-  supported optimizer operations. This is deliberately not named forward FLOPs.
-- `operator_flops`: sorted global operator totals. Module totals are not summed,
-  since parent and child attribution overlap.
+```python
+counter = th.FlopCounter(module=model.network)
+```
 
-`latest_report` starts as `UnmeasuredFlops(reason="no_complete_batch")`. The latest
-complete report is retained when a later batch fails. Reports and sampling limits
-reset for each fit and are not checkpointed. No per-batch history is retained.
-The interval uses the epoch-local batch index; `max_batches` spans the entire fit.
-Unsampled batches have no active counting mode.
+Calling `.forward(...)` directly bypasses PyTorch hooks; call the module instead.
+Counting starts at the selected module's first forward pre-hook and stops in its
+forward post-hook. The callback then removes its hooks and dispatch modes. A
+second invocation, even in the same training step, is not measured. Loss
+computation outside forward, backward, checkpoint recomputation during backward,
+optimizer updates, validation, and sanity checks are excluded. Work deliberately
+placed inside forward is included. Existing pre-hooks registered earlier run
+before measurement; existing local post-hooks run afterward. Global hooks and
+nested module hooks may contribute work within the observed boundary.
 
-By default, the callback sends `flops/batch`, `flops/backward`, and
-`flops/non_backward` to the Lightning logger and writes the report through Loguru
-on rank zero. Set `log_metrics=False` to disable Lightning metric logging. Logged
-metrics are floating point; use the report for exact large integer counts.
+The selected forward must complete in the first training batch. If it is never
+called or a forward failure is swallowed, the callback warns and leaves the
+report unmeasured; it does not substitute whole-training-step counts or retry on
+later batches. Propagated failures retain their original exception and clean up
+counting state. A successful report survives a later failure. Each subsequent
+fit resets measurement; callback results are not checkpointed.
 
-Automatic optimization, gradient accumulation, and manual optimization via
-`self.manual_backward` are supported. Calling raw `loss.backward()` in manual
-optimization contributes to the batch total but bypasses Lightning's backward
-hooks, so it cannot be classified as backward work. Data loading, validation,
-communication, and work in hooks outside the measurement interval are excluded.
-Callback ordering can affect included hook arithmetic. Optimizer closure retries
-are counted as executed. Counts describe a microbatch, not an accumulated update.
+## Paper reporting
 
-Distributed counts are per rank, without collectives or multiplication by world
-size. Logger metrics describe rank zero; this does not imply equal work across
-ranks or a global total. Multi-device and accelerator strategies have not been
-validated by this component's CPU tests.
+`latest_report` starts as `UnmeasuredFlops(reason="no_complete_forward")`.
+A successful `FlopReport` contains:
+
+- `forward_flops`: theoretical arithmetic for the complete observed input.
+- `input_shapes`: tensor shapes in positional then keyword encounter order,
+  recursively through tuples, lists, and mappings. No input tensors are retained.
+- `batch_size`: the leading dimension of the first non-scalar tensor input,
+  or one if none exists. This is a batch-first convention, not semantic inference;
+  verify it for sequence-first inputs or other layouts.
+- `operator_flops`: sorted Global operator totals. Module rows are not summed
+  because parent and child attribution overlap.
+- `multiply_add_flops`: two, meaning one multiplication plus one addition counts
+  as two FLOPs. A paper counting multiply-accumulates as one uses a different
+  convention; the complete total cannot generally be divided by two because
+  not every operator represents multiply-accumulates.
+
+For a per-image paper figure, use an input batch of size one or justify the
+normalization for your model. The callback never silently divides by batch size.
+It observes the current training mode; it does not claim to measure eval-mode
+inference. Report input resolution/sequence lengths, batch size, model mode,
+PyTorch version, counting convention, and known operator-coverage limitations.
+No claim of exact hardware instruction count or full operator coverage is made.
+
+Reports are rank-local, without collectives or world-size multiplication.
+On rank zero the callback writes the report through Loguru and, when
+`log_metrics=True`, emits one `flops/forward` record directly to each configured
+Lightning logger. This avoids Lightning's per-step metric cache repeating the
+value. It does not populate `trainer.callback_metrics`. Logger values are floats;
+use the report for exact integer counts. Other ranks retain their local reports.
+Multi-device and accelerator strategies have not been validated by the CPU tests.
 
 ## Windowed attention and custom operators
 
-Partitioned windows naturally expose smaller attention shapes. For batch size B,
-H heads, N tokens, W tokens per window, and head dimension D, the QK and AV matrix
-products cost `4 * B * H * N * W * D` FLOPs when windows divide N evenly and Q, K,
-and V have equal head dimensions. Projection and softmax work are separate.
-Applying a mask after dense global attention does not reduce its matrix cost.
-Padding counts as executed work.
+Partitioned windows expose smaller attention shapes. For batch size B, H heads,
+N tokens, W tokens per window, and equal head dimension D, QK and AV matrix
+products cost `4 * B * H * N * W * D` FLOPs when windows divide N evenly.
+Projections and other operators are separate. A mask applied after dense global
+attention does not reduce its matrix cost; padding counts as executed work.
 
-Pass `custom_mapping={operator_packet: formula}` to override or extend PyTorch's
-formulas without modifying the global registry. Keys such as `torch.ops.aten.mm`
-identify operator packets. Formula call signatures follow PyTorch: tensor inputs
-are replaced by shapes, non-tensor arguments pass through, and `out_shape` is
-provided as a keyword. The formula must accept the relevant operator arguments
-and return an integer FLOP count. Supply separate formulas for custom backward
-operators when applicable. Ordinary custom operators still execute normally.
+Pass `custom_mapping={operator_packet: formula}` to extend or override formulas
+without modifying PyTorch's global registry. Keys such as `torch.ops.aten.mm`
+identify operator packets. Tensor arguments become shapes, non-tensor arguments
+pass through, and `out_shape` is provided by keyword. A formula accepts the
+relevant arguments and returns an integer FLOP count. Ordinary custom operators
+still execute normally; no backward formulas are needed for this callback.
 
-Unsupported ordinary operators contribute zero; reports do not certify complete
-coverage. Dense formulas may overestimate masked attention or sparse arithmetic.
-Dtype, memory movement, kernel fusion, device throughput, and wall-clock time
-are not represented. One multiply plus one addition counts as two FLOPs.
+Unsupported ordinary operators contribute zero. Dense formulas may overestimate
+masked or sparse arithmetic. Memory traffic, device throughput, wall-clock time,
+and dtype-specific hardware execution are not represented.
 
 Compiled modules are rejected at fit start. Higher-order operators, including
 Triton wrappers and control flow, are rejected during measurement: some PyTorch
-FLOP handlers skip kernel execution or evaluate extra branches, which would alter
-real training. A formula does not bypass this guard. Opaque ordinary operators
-must likewise preserve execution under PyTorch's dispatcher. Fused and compiled
-backends require separate validation before support can be claimed.
+FLOP handlers skip kernels or execute extra branches. A formula does not bypass
+this guard. Fused or compiled backends need separate execution validation.
 
-## Functional core
+## Functional core and validation
 
 `torch_harness.flops.summarize_flops` is independent of Lightning and PyTorch. It
-validates a mapping of global operator names to counts and returns an immutable
-`FlopReport`. The Lightning callback owns dispatch contexts, sampling, lifecycle
-cleanup, and logging. It discards incomplete measurements on propagated failures
-and removes counting hooks on exception or teardown.
+validates counts and shapes and constructs the immutable forward report. The
+callback owns model hooks, dispatch contexts, one-shot lifecycle, and logging.
 
-## Validation
-
-CPU tests compare partitioned attention against analytical matrix counts and
-exercise real Lightning automatic/manual optimization, accumulation, sampling,
-local formula overrides, and exception cleanup. They validate mathematical
-counting and lifecycle behavior, not hardware instruction counts.
+CPU tests verify analytical attention arithmetic, exact forward boundaries,
+multiple calls/batches/epochs, gradient accumulation, manual optimization,
+checkpoint recomputation exclusion, logger emission, custom formulas, exception
+cleanup, and preservation of model updates against an uninstrumented baseline.
+They validate mathematical accounting and lifecycle behavior, not hardware work.
