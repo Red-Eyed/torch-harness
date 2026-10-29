@@ -13,6 +13,7 @@ from torch_harness.losses import (
     UncertaintyWeighting,
     weighted_loss,
 )
+from torch_harness.tensor_description import describe_tensor
 
 __all__ = [
     "BalancerConfig",
@@ -23,5 +24,6 @@ __all__ = [
     "SafeBatchNorm3d",
     "SuperLoss",
     "UncertaintyWeighting",
+    "describe_tensor",
     "weighted_loss",
 ]

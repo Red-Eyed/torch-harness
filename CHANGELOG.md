@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.12.0]
+
+### New Features
+
+- Add `describe_tensor` to print finite-value statistics for tensors in nested
+  mappings and iterables, including percentile rows and non-finite counts.
+  Preserve float64 precision and input gradients; reject invalid percentiles
+  and unsupported complex, sparse, quantized, or meta tensors explicitly.
+
 ## [0.11.0]
 
 ### New Features

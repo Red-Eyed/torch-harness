@@ -9,6 +9,36 @@ avoids assumptions about the surrounding project, and can be used independently
 of the other utilities. Optional framework integrations remain isolated so they
 do not add dependencies to the core package.
 
+## Tensor descriptions
+
+`describe_tensor` prints statistics for tensors nested inside mappings and
+iterables, with paths identifying each tensor:
+
+```python
+import torch
+
+from torch_harness import describe_tensor
+
+describe_tensor(
+    {"features": [torch.tensor([1.0, 2.0, float("nan")])]},
+    percentiles=(0.25, 0.5, 0.75),
+)
+```
+
+Each description includes shape, original dtype and device, element count,
+non-finite count (`null_count`), and finite-value mean, population standard
+deviation, minimum, quantiles, and maximum. Empty or entirely non-finite tensors
+print metadata only. Float64 precision is retained; other real dtypes use
+float32 calculations. Large integers can therefore round. Inputs and gradients
+remain unchanged.
+
+Percentiles are fractions in `[0, 1]`; an empty tuple omits quantiles. Strings,
+bytes, and non-tensor leaves are ignored. Iterators are consumed, and containers
+must be finite and acyclic. Complex, sparse, quantized, and meta tensors are
+rejected. Statistics use all finite values without sampling and can allocate
+substantial temporary storage or synchronize accelerators. Quantile support and
+size limits follow PyTorch. Descriptions are written to standard output.
+
 ## Adaptive loss balancing
 
 `LossBalancer` adapts named auxiliary weights from shared gradient norms while
