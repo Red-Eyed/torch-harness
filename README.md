@@ -9,6 +9,28 @@ avoids assumptions about the surrounding project, and can be used independently
 of the other utilities. Optional framework integrations remain isolated so they
 do not add dependencies to the core package.
 
+## Imports
+
+All public utilities are available through the root package:
+
+```python
+import torch_harness as th
+
+th.describe_tensor(tensor)
+loss = th.SuperLoss()
+model = th.replace_layers(model, old_layer_cls, replacement_factory)
+counter = th.FlopCounter()  # Requires torch-harness[lightning].
+th.write_text_graph(onnx_model, output_path)  # Requires torch-harness[onnx].
+```
+
+Lightning and ONNX exports load on first access. Importing `torch_harness` and
+using core utilities does not require either extra. Accessing an optional utility
+without its dependency raises `ModuleNotFoundError` with the extra to install.
+The aliases retain the original objects and type annotations, and appear in
+`dir(th)` without loading the integrations. Existing namespace imports such as
+`from torch_harness.lightning import FlopCounter` remain supported. A wildcard
+import requests every export and therefore requires both optional integrations.
+
 ## Tensor descriptions
 
 `describe_tensor` prints statistics for tensors nested inside mappings and

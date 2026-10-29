@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.13.0]
+
+### New Features
+
+- Expose all public utilities through `import torch_harness as th`, including
+  runtime transformations, FLOP reports, Lightning callbacks, and ONNX helpers.
+  Lightning and ONNX exports load on demand and identify the required extra
+  when its dependency is missing. Existing namespace imports remain supported.
+
 ## [0.12.0]
 
 ### New Features
