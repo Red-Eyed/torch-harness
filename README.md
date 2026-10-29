@@ -233,6 +233,35 @@ tensor operations that are not registered modules do not appear.
 Run `uv run examples/file_model_structure.py` to generate an inspectable example
 at `examples/model-structure.txt`.
 
+## Inference profiling
+
+Use `profile_inference` without Lightning to produce parameter and GFLOP metrics
+for a fixed reference input:
+
+```python
+import torch
+import torch_harness as th
+
+model = torch.nn.Linear(4, 3)
+profile = th.profile_inference(model, args=(torch.ones(1, 4),))
+parameters = profile.parameters
+gflops = profile.gflops
+```
+
+The function executes exactly one eval-mode forward with gradients disabled,
+restores every module's prior training flag, and returns an immutable
+`InferenceProfile`. It includes total and trainable parameter counts, input
+shapes, batch size, the PyTorch version, execution mode, and the convention
+**one multiply-add = two FLOPs**. Shared parameters count once; buffers do not
+count as parameters. GFLOPs use decimal billions and cover the entire input
+batch, without rounding or automatic per-sample normalization.
+
+Use the same reference workload across models and batch size one for per-sample
+paper figures. Unsupported ordinary operators may count zero; compiled and
+higher-order execution is rejected. See the
+[profiling documentation](src/torch_harness/flops/README.md) for keyword inputs,
+custom formulas, state-restoration guarantees, and limitations.
+
 ## Forward FLOPs
 
 `FlopCounter` measures only the first model forward in the first real training

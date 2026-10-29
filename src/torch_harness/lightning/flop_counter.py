@@ -1,7 +1,8 @@
 """Measure a single real model forward for paper-oriented FLOP reporting."""
 
-from collections.abc import Callable, Iterator, Mapping
-from typing import cast
+from collections.abc import Callable, Mapping
+from contextlib import AbstractContextManager
+from typing import TYPE_CHECKING
 
 import torch
 from lightning.pytorch import Callback, LightningModule, Trainer
@@ -9,30 +10,16 @@ from loguru import logger
 from torch.utils.hooks import RemovableHandle
 from typing_extensions import override
 
-from torch_harness.flops import FlopReport, UnmeasuredFlops, summarize_flops
-from torch_harness.flops._guard import ExecutionGuard
+from torch_harness.flops import FlopReport, UnmeasuredFlops
+from torch_harness.flops._measurement import (
+    count_forward,
+    forward_report,
+    input_shapes,
+    validate_eager,
+)
 
-
-def _is_compiled(module: torch.nn.Module) -> bool:
-    """Recognize torch.compile, Module.compile, and Lightning's unwrapped form."""
-    return (
-        hasattr(module, "_orig_mod")
-        or getattr(module, "_compiled_call_impl", None) is not None
-        or getattr(module, "_compiler_ctx", None) is not None
-    )
-
-
-def _input_shapes(obj: object) -> Iterator[tuple[int, ...]]:
-    """Extract tensor shapes from nested positional and keyword inputs."""
-    match obj:
-        case torch.Tensor():
-            yield tuple(obj.shape)
-        case Mapping():
-            for value in cast(Mapping[object, object], obj).values():
-                yield from _input_shapes(value)
-        case tuple() | list():
-            for value in cast(tuple[object, ...] | list[object], obj):
-                yield from _input_shapes(value)
+if TYPE_CHECKING:
+    from torch.utils.flop_counter import FlopCounterMode
 
 
 class FlopCounter(Callback):
@@ -71,15 +58,8 @@ class FlopCounter(Callback):
         self.custom_mapping = dict(custom_mapping or {})
         self.log_metrics = log_metrics
         self.latest_report: FlopReport | UnmeasuredFlops = UnmeasuredFlops()
-        try:
-            from torch.utils.flop_counter import FlopCounterMode
-        except ImportError as error:
-            raise RuntimeError(
-                "FlopCounter requires a PyTorch version providing FlopCounterMode"
-            ) from error
-        self._counter_type = FlopCounterMode
         self._counter: FlopCounterMode | None = None
-        self._guard: ExecutionGuard | None = None
+        self._measurement: AbstractContextManager[FlopCounterMode] | None = None
         self._hooks: list[RemovableHandle] = []
         self._attempted = False
         self._pending_log = False
@@ -91,14 +71,11 @@ class FlopCounter(Callback):
         for handle in self._hooks:
             handle.remove()
         self._hooks.clear()
-        guard = self._guard
-        self._guard = None
-        if guard is not None:
-            guard.__exit__(None, None, None)
-        counter = self._counter
+        measurement = self._measurement
+        self._measurement = None
         self._counter = None
-        if counter is not None:
-            counter.__exit__(None, None, None)
+        if measurement is not None:
+            measurement.__exit__(None, None, None)
         self._forward_depth = 0
 
     def _before_forward(
@@ -111,13 +88,9 @@ class FlopCounter(Callback):
         self._forward_depth += 1
         if self._forward_depth != 1:
             return
-        self._shapes = tuple(_input_shapes((args, kwargs)))
-        counter = self._counter_type(display=False, custom_mapping=self.custom_mapping)
-        counter.__enter__()
-        self._counter = counter
-        guard = ExecutionGuard()
-        guard.__enter__()
-        self._guard = guard
+        self._shapes = tuple(input_shapes((args, kwargs)))
+        self._measurement = count_forward(self.custom_mapping)
+        self._counter = self._measurement.__enter__()
 
     def _after_forward(
         self,
@@ -134,11 +107,7 @@ class FlopCounter(Callback):
         if counter is None:
             return
         self._close()
-        counts = {
-            str(operator): count
-            for operator, count in counter.get_flop_counts().get("Global", {}).items()
-        }
-        self.latest_report = summarize_flops(counts, input_shapes=self._shapes)
+        self.latest_report = forward_report(counter, self._shapes)
         self._pending_log = True
 
     @override
@@ -149,8 +118,7 @@ class FlopCounter(Callback):
         self._pending_log = False
         self.latest_report = UnmeasuredFlops()
         model = self._module if self._module is not None else pl_module
-        if any(_is_compiled(module) for module in model.modules()):
-            raise RuntimeError("FLOP measurement requires eager, uncompiled modules")
+        validate_eager(model)
 
     @override
     def on_train_batch_start(

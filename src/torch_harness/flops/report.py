@@ -29,6 +29,28 @@ class FlopReport:
     multiply_add_flops: Literal[2] = 2
 
 
+@dataclass(frozen=True)
+class InferenceProfile:
+    """Paper-table metrics and accounting metadata for a single eval forward.
+
+    Parameter counts exclude buffers and deduplicate shared parameter objects.
+    FLOPs describe the full supplied batch under registered operator formulas.
+    The model runs in eval mode with gradient recording disabled.
+    """
+
+    parameters: int
+    trainable_parameters: int
+    flops: FlopReport
+    torch_version: str
+    model_mode: Literal["eval"] = "eval"
+    grad_mode: Literal["no_grad"] = "no_grad"
+
+    @property
+    def gflops(self) -> float:
+        """Return whole-input forward FLOPs in decimal billions, without rounding."""
+        return self.flops.forward_flops / 1_000_000_000
+
+
 def summarize_flops(
     counts: Mapping[str, int], *, input_shapes: tuple[tuple[int, ...], ...] = ()
 ) -> FlopReport:

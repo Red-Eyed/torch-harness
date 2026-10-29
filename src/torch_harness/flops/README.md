@@ -1,4 +1,57 @@
-# One-shot forward FLOPs
+# Model FLOP measurement
+
+## Standalone inference profiling
+
+`profile_inference` runs an eager model once on explicit reference inputs without
+Lightning or a Trainer:
+
+```python
+import torch
+import torch_harness as th
+
+model = torch.nn.Linear(4, 3)
+profile = th.profile_inference(model, args=(torch.ones(1, 4),))
+assert profile.parameters == 15
+assert profile.trainable_parameters == 15
+assert profile.flops.forward_flops == 24
+assert profile.gflops == 24 / 1e9
+```
+
+Supply keyword inputs through `kwargs={"mask": mask}`. Positional inputs are an
+explicit tuple; a tuple-valued single argument is passed as `args=(that_tuple,)`.
+The profiler does not construct or resize inputs, transfer devices, or change
+dtypes. `custom_mapping` accepts the same local operator formulas as FlopCounter.
+No optional package extras are required.
+
+`InferenceProfile` contains total `parameters`, `trainable_parameters` (using
+requires_grad), the immutable `flops` report, `torch_version`, `model_mode="eval"`,
+and `grad_mode="no_grad"`. The `gflops` property divides total forward FLOPs by
+10**9 without rounding. Shared parameter objects count once; buffers are excluded.
+Distinct parameter objects sharing storage are still distinct parameters.
+
+Exactly one `model(*args, **kwargs)` runs in eval mode under `torch.no_grad()`.
+The caller's grad/inference modes and every registered module's original training
+flag are restored on success and failure, including mixed train/eval submodules.
+Inference mode is temporarily disabled to accommodate PyTorch module tracking of
+inputs that already require gradients. Inputs are passed unchanged, outputs are
+not retained, no backward or warmup runs, and exceptions propagate unchanged.
+The profiler does not snapshot weights or buffers: user-defined forward or
+train/eval methods may mutate state or consume randomness, and arbitrary side
+effects cannot be rolled back. Avoid concurrent use of the same mutable model.
+
+For paper tables, compare identical input shapes, dtype, batch size, and inference
+workloads. Use batch size one for a per-sample figure; totals are never silently
+normalized. Input shapes and the batch-size convention are in `profile.flops`.
+One multiply-add counts as two FLOPs. Counts only cover registered formulas;
+they do not certify complete operator coverage or measure hardware instructions.
+
+The profiled workload is whatever forward executes. For autoregressive models,
+wrap the intended inference routine in an nn.Module.forward with explicit decoding
+length/policy if the paper figure should include encoder and iterative decoder
+work. A teacher-forced training forward is a different workload. The utility does
+not infer token counts, decoding policy, or architecture-specific semantics.
+
+## Lightning: one-shot forward FLOPs
 
 `FlopCounter` measures the first model forward in the first real Lightning
 training batch, once per fit. It observes existing execution without replaying

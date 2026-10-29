@@ -3,7 +3,13 @@
 from importlib import import_module
 from typing import TYPE_CHECKING, Literal
 
-from torch_harness.flops import FlopReport, UnmeasuredFlops, summarize_flops
+from torch_harness.flops import (
+    FlopReport,
+    InferenceProfile,
+    UnmeasuredFlops,
+    profile_inference,
+    summarize_flops,
+)
 from torch_harness.layers import (
     SafeBatchNorm1d,
     SafeBatchNorm2d,
@@ -49,6 +55,7 @@ __all__ = [
     "FileModelStructure",
     "FlopCounter",
     "FlopReport",
+    "InferenceProfile",
     "LossBalancer",
     "LossTarget",
     "NonFiniteLossError",
@@ -61,6 +68,7 @@ __all__ = [
     "collect_source_scopes",
     "describe_tensor",
     "format_text_graph",
+    "profile_inference",
     "replace_layers",
     "summarize_flops",
     "weighted_loss",

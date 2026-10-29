@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.16.0]
+
+### New Features
+
+- Add `profile_inference` and immutable `InferenceProfile` reports for standalone
+  paper-table metrics: total/trainable parameters, whole-input GFLOPs, input
+  shapes, batch-size convention, execution mode, and PyTorch version. Run one
+  eval-mode forward with gradients disabled and restore mixed module training
+  flags on success or failure. No Lightning dependency is required.
+- Share guarded operator counting between inference profiling and the one-shot
+  Lightning callback. Counts use two FLOPs per multiply-add; unsupported ordinary
+  operators may contribute zero. Custom formulas remain local to each profile.
+
 ## [0.15.0]
 
 ### Backwards Incompatible Changes
