@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.13.1]
+
+### Bug Fixes
+
+- Fix `describe_tensor` silently ignoring modules in `Sequential`, `ModuleList`,
+  `ModuleDict`, and mappings. Inspect registered parameters and buffers using
+  named paths without running a forward pass or modifying model state.
+
 ## [0.13.0]
 
 ### New Features

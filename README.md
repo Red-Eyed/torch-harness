@@ -34,7 +34,8 @@ import requests every export and therefore requires both optional integrations.
 ## Tensor descriptions
 
 `describe_tensor` prints statistics for tensors nested inside mappings and
-iterables, with paths identifying each tensor:
+iterables, or registered parameters and buffers inside PyTorch modules, with
+paths identifying each tensor:
 
 ```python
 import torch
@@ -45,7 +46,17 @@ describe_tensor(
     {"features": [torch.tensor([1.0, 2.0, float("nan")])]},
     percentiles=(0.25, 0.5, 0.75),
 )
+
+describe_tensor(torch.nn.Sequential(torch.nn.Linear(2, 3)))
+# Prints root.0.weight and root.0.bias.
 ```
+
+Modules, including `Sequential`, `ModuleList`, and `ModuleDict`, are inspected
+without running a forward pass or invoking state-dict hooks. Registered buffers
+are included even when non-persistent. Shared parameters and shared buffers are
+each reported once per module traversal, under their first registered name.
+Unregistered tensor attributes and absent parameters or buffers are omitted.
+Ordered mappings can contain tensors, modules, or nested mixtures of both.
 
 Each description includes shape, original dtype and device, element count,
 non-finite count (`null_count`), and finite-value mean, population standard

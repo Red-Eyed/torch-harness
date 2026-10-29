@@ -55,6 +55,11 @@ def _describe(obj: object, percentiles: tuple[float, ...], prefix: str) -> None:
             print(f"\n{prefix}")
             for key, value in rows:
                 print(f"  {key:<12} {value}")
+        case torch.nn.Module():
+            for name, parameter in obj.named_parameters():
+                _describe(parameter, percentiles, f"{prefix}.{name}")
+            for name, buffer in obj.named_buffers():
+                _describe(buffer, percentiles, f"{prefix}.{name}")
         case Mapping():
             for key, value in cast(Mapping[object, object], obj).items():
                 _describe(value, percentiles, f"{prefix}.{key}")
@@ -73,6 +78,12 @@ def describe_tensor(
 ) -> None:
     """Print tensor statistics recursively to standard output.
 
+    Modules expose their registered parameters and buffers recursively without
+    executing forward or state-dict hooks. Shared parameters and shared buffers
+    are each reported once per module traversal, under their first registered
+    name. Non-persistent buffers are included; unregistered tensor attributes
+    and absent parameters or buffers are omitted.
+
     Mapping paths use keys and iterable paths use indexes. Non-tensor leaves,
     strings, and bytes are ignored. Containers must be finite and acyclic;
     iterators are consumed. Inputs and gradients are not modified.
@@ -87,7 +98,7 @@ def describe_tensor(
     quantile device and size limits. Output before a later failure is retained.
 
     Args:
-        obj: A tensor or nested mappings and iterables containing tensors.
+        obj: A tensor, module, or nested mappings and iterables containing them.
         percentiles: Quantile fractions in [0, 1], printed in supplied order.
             An empty tuple omits percentile rows.
         prefix: Path printed for the root object.
