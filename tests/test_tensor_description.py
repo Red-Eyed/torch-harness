@@ -10,6 +10,32 @@ from torch import nn
 from torch_harness import describe_tensor
 
 
+def test_returns_without_printing(capsys: pytest.CaptureFixture[str]) -> None:
+    """Return a reusable description without writing to stdout or stderr."""
+    output = describe_tensor({"values": torch.ones(2)})
+    assert "\nroot.values\n" in output
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err == ""
+
+
+@pytest.mark.parametrize("obj", [None, {}, [], "text", nn.Identity()])
+def test_no_tensors_returns_empty_string(obj: object) -> None:
+    """Return an empty string when traversal finds no describable tensors."""
+    assert describe_tensor(obj) == ""
+
+
+def test_failure_does_not_print_partial_description(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Keep console output untouched when a later tensor cannot be described."""
+    with pytest.raises(TypeError, match="complex"):
+        describe_tensor([torch.ones(2), torch.tensor([1 + 2j])])
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err == ""
+
+
 @pytest.fixture
 def linear() -> nn.Linear:
     """Provide deterministic weights and existing gradients for module inspection."""
@@ -30,7 +56,6 @@ def test_module_containers(
         "module", "sequential", "module_list", "module_dict", "ordered_dict"
     ],
     linear: nn.Linear,
-    capsys: pytest.CaptureFixture[str],
 ) -> None:
     """Reach module tensors from both PyTorch containers and ordered mappings."""
     match container:
@@ -44,8 +69,7 @@ def test_module_containers(
             obj, path = nn.ModuleDict({"layer": linear}), "root.layer"
         case _:
             obj, path = OrderedDict(layer=linear), "root.layer"
-    describe_tensor(obj, percentiles=())
-    output = capsys.readouterr().out
+    output = describe_tensor(obj, percentiles=())
     assert f"\n{path}.weight\n" in output
     assert f"\n{path}.bias\n" in output
     assert "mean         2.0" in output
@@ -53,22 +77,20 @@ def test_module_containers(
     assert output.count("null_count") == 2
 
 
-def test_ordered_tensor_mapping(capsys: pytest.CaptureFixture[str]) -> None:
+def test_ordered_tensor_mapping() -> None:
     """Preserve ordered mappings of tensors, including state dictionaries."""
-    describe_tensor(OrderedDict(second=torch.ones(2), first=torch.zeros(1)))
-    output = capsys.readouterr().out
+    output = describe_tensor(OrderedDict(second=torch.ones(2), first=torch.zeros(1)))
     assert output.index("root.second") < output.index("root.first")
 
 
-def test_nested_modules_and_buffers(capsys: pytest.CaptureFixture[str]) -> None:
+def test_nested_modules_and_buffers() -> None:
     """Include recursive persistent and non-persistent buffers with named paths."""
     layer = nn.BatchNorm1d(2)
     layer.register_buffer("temporary", torch.ones(2), persistent=False)
     layer.register_buffer("absent", None)
     layers: OrderedDict[str, nn.Module] = OrderedDict(norm=layer, empty=nn.Identity())
     model = nn.Sequential(layers)
-    describe_tensor({"model": [model]})
-    output = capsys.readouterr().out
+    output = describe_tensor({"model": [model]})
     for name in (
         "weight",
         "bias",
@@ -83,16 +105,13 @@ def test_nested_modules_and_buffers(capsys: pytest.CaptureFixture[str]) -> None:
     assert output.count("null_count") == 6
 
 
-def test_shared_module_tensors(
-    linear: nn.Linear, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_shared_module_tensors(linear: nn.Linear) -> None:
     """Describe shared tensors once under their first module registration."""
     model = nn.ModuleList([linear, linear])
     shared = torch.ones(2)
     model.register_buffer("first", shared)
     model.register_buffer("second", shared)
-    describe_tensor(model)
-    output = capsys.readouterr().out
+    output = describe_tensor(model)
     assert "\nroot.0.weight\n" in output
     assert "\nroot.first\n" in output
     assert "root.1" not in output
@@ -100,9 +119,7 @@ def test_shared_module_tensors(
     assert output.count("null_count") == 3
 
 
-def test_module_state_preserved(
-    linear: nn.Linear, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_module_state_preserved(linear: nn.Linear) -> None:
     """Leave training mode, parameter identities, values, and gradients unchanged."""
     before = linear.weight.detach().clone()
     parameter = linear.weight
@@ -119,7 +136,6 @@ def test_module_state_preserved(
         describe_tensor(linear)
     finally:
         handle.remove()
-    capsys.readouterr()
     assert linear.training
     assert linear.weight is parameter
     assert parameter.grad is gradient
@@ -127,10 +143,12 @@ def test_module_state_preserved(
     torch.testing.assert_close(gradient, gradient_before)
 
 
-def test_exact_statistics(capsys: pytest.CaptureFixture[str]) -> None:
-    """Print metadata, population deviation, and ordered linear quantiles."""
-    describe_tensor(torch.tensor([0.0, 2.0, 4.0]), percentiles=(0.75, 0.0, 1.0))
-    assert capsys.readouterr().out == (
+def test_exact_statistics() -> None:
+    """Return metadata, population deviation, and ordered linear quantiles."""
+    output = describe_tensor(
+        torch.tensor([0.0, 2.0, 4.0]), percentiles=(0.75, 0.0, 1.0)
+    )
+    assert output == (
         "\nroot\n"
         "  shape        (3,)\n"
         "  dtype        torch.float32\n"
@@ -147,11 +165,10 @@ def test_exact_statistics(capsys: pytest.CaptureFixture[str]) -> None:
     )
 
 
-def test_nested_paths(capsys: pytest.CaptureFixture[str]) -> None:
+def test_nested_paths() -> None:
     """Traverse mappings and generators while ignoring ordinary scalar leaves."""
     nested = {"weights": [torch.tensor(2), (torch.tensor(3) for _ in range(1))]}
-    describe_tensor((nested, "text", b"bytes", None, 42), prefix="batch")
-    output = capsys.readouterr().out
+    output = describe_tensor((nested, "text", b"bytes", None, 42), prefix="batch")
     assert "\nbatch[0].weights[0]\n" in output
     assert "\nbatch[0].weights[1][0]\n" in output
     assert output.count("null_count") == 2
@@ -159,11 +176,10 @@ def test_nested_paths(capsys: pytest.CaptureFixture[str]) -> None:
     assert "std          0.0" in output
 
 
-def test_nonfinite_values(capsys: pytest.CaptureFixture[str]) -> None:
+def test_nonfinite_values() -> None:
     """Exclude both infinity signs and NaN from finite distribution statistics."""
     tensor = torch.tensor([1.0, float("nan"), float("inf"), -float("inf"), 3.0])
-    describe_tensor(tensor, percentiles=(0.5,))
-    output = capsys.readouterr().out
+    output = describe_tensor(tensor, percentiles=(0.5,))
     assert "null_count   3" in output
     assert "mean         2.0" in output
     assert "std          1.0" in output
@@ -171,12 +187,9 @@ def test_nonfinite_values(capsys: pytest.CaptureFixture[str]) -> None:
 
 
 @pytest.mark.parametrize("values", [[], [float("nan"), float("inf")]])
-def test_no_finite_values(
-    values: list[float], capsys: pytest.CaptureFixture[str]
-) -> None:
-    """Print metadata without inventing statistics for an empty population."""
-    describe_tensor(torch.tensor(values))
-    output = capsys.readouterr().out
+def test_no_finite_values(values: list[float]) -> None:
+    """Return metadata without inventing statistics for an empty population."""
+    output = describe_tensor(torch.tensor(values))
     assert f"null_count   {len(values)}" in output
     assert "mean" not in output
     assert "std" not in output
@@ -186,32 +199,28 @@ def test_no_finite_values(
 @pytest.mark.parametrize(
     "dtype", [torch.float16, torch.bfloat16, torch.float32, torch.float64, torch.int64]
 )
-def test_dtypes_and_input_preservation(
-    dtype: torch.dtype, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_dtypes_and_input_preservation(dtype: torch.dtype) -> None:
     """Calculate in supported precision without changing input values or metadata."""
     tensor = torch.tensor([[1, 2], [3, 4]], dtype=dtype).mT
     before = tensor.clone()
     strides = tensor.stride()
-    describe_tensor(tensor)
-    output = capsys.readouterr().out
+    output = describe_tensor(tensor)
     assert f"dtype        {dtype}" in output
     assert "mean         2.5" in output
     assert tensor.stride() == strides
     torch.testing.assert_close(tensor, before)
 
 
-def test_float64_precision(capsys: pytest.CaptureFixture[str]) -> None:
+def test_float64_precision() -> None:
     """Keep finite float64 values that would overflow or round away in float32."""
-    describe_tensor(torch.tensor([1e100], dtype=torch.float64))
-    output = capsys.readouterr().out
+    output = describe_tensor(torch.tensor([1e100], dtype=torch.float64))
     assert "null_count   0" in output
     assert "mean         1e+100" in output
-    describe_tensor(torch.tensor([1.0, 1.0 + 2e-12], dtype=torch.float64))
-    assert "mean         1.000000000001" in capsys.readouterr().out
+    output = describe_tensor(torch.tensor([1.0, 1.0 + 2e-12], dtype=torch.float64))
+    assert "mean         1.000000000001" in output
 
 
-def test_preserves_gradients(capsys: pytest.CaptureFixture[str]) -> None:
+def test_preserves_gradients() -> None:
     """Leave existing gradients and the live computation graph intact."""
     tensor = torch.tensor([1.0, 2.0], requires_grad=True)
     tensor.square().sum().backward()
@@ -219,7 +228,6 @@ def test_preserves_gradients(capsys: pytest.CaptureFixture[str]) -> None:
     assert gradient is not None
     before = gradient.clone()
     describe_tensor(tensor)
-    capsys.readouterr()
     assert tensor.grad is gradient
     torch.testing.assert_close(gradient, before)
     tensor.sum().backward()
@@ -227,28 +235,23 @@ def test_preserves_gradients(capsys: pytest.CaptureFixture[str]) -> None:
 
 
 @pytest.mark.parametrize("percentile", [-0.1, 1.1, float("nan"), float("inf")])
-def test_invalid_percentiles(
-    percentile: float, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """Validate quantile bounds before writing any output."""
+def test_invalid_percentiles(percentile: float) -> None:
+    """Reject invalid quantile bounds."""
     with pytest.raises(ValueError, match="finite fractions"):
         describe_tensor(torch.ones(2), percentiles=(percentile,))
-    assert capsys.readouterr().out == ""
 
 
-def test_empty_percentiles_and_boolean(capsys: pytest.CaptureFixture[str]) -> None:
+def test_empty_percentiles_and_boolean() -> None:
     """Allow no quantiles and treat booleans as numeric indicator values."""
-    describe_tensor(torch.tensor([False, True]), percentiles=())
-    output = capsys.readouterr().out
+    output = describe_tensor(torch.tensor([False, True]), percentiles=())
     assert "mean         0.5" in output
     assert "p50" not in output
 
 
-def test_rejects_complex(capsys: pytest.CaptureFixture[str]) -> None:
+def test_rejects_complex() -> None:
     """Reject complex statistics rather than silently dropping imaginary values."""
     with pytest.raises(TypeError, match="complex"):
         describe_tensor(torch.tensor([1 + 2j]))
-    assert capsys.readouterr().out == ""
 
 
 def test_rejects_meta() -> None:

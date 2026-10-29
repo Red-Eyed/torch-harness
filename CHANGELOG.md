@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.14.0]
+
+### Backwards Incompatible Changes
+
+- Change `describe_tensor` to return its formatted description as a string
+  instead of printing and returning `None`. To preserve console output, replace
+  `describe_tensor(obj)` with `print(describe_tensor(obj), end="")`. Formatting
+  and traversal are unchanged; inputs without tensors return an empty string.
+
 ## [0.13.1]
 
 ### Bug Fixes

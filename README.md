@@ -16,7 +16,7 @@ All public utilities are available through the root package:
 ```python
 import torch_harness as th
 
-th.describe_tensor(tensor)
+description = th.describe_tensor(tensor)
 loss = th.SuperLoss()
 model = th.replace_layers(model, old_layer_cls, replacement_factory)
 counter = th.FlopCounter()  # Requires torch-harness[lightning].
@@ -33,22 +33,23 @@ import requests every export and therefore requires both optional integrations.
 
 ## Tensor descriptions
 
-`describe_tensor` prints statistics for tensors nested inside mappings and
-iterables, or registered parameters and buffers inside PyTorch modules, with
-paths identifying each tensor:
+`describe_tensor` returns a string of statistics for tensors nested inside
+mappings and iterables, or registered parameters and buffers inside PyTorch
+modules, with paths identifying each tensor:
 
 ```python
 import torch
 
 from torch_harness import describe_tensor
 
-describe_tensor(
+description = describe_tensor(
     {"features": [torch.tensor([1.0, 2.0, float("nan")])]},
     percentiles=(0.25, 0.5, 0.75),
 )
+print(description, end="")
 
-describe_tensor(torch.nn.Sequential(torch.nn.Linear(2, 3)))
-# Prints root.0.weight and root.0.bias.
+description = describe_tensor(torch.nn.Sequential(torch.nn.Linear(2, 3)))
+# Contains root.0.weight and root.0.bias.
 ```
 
 Modules, including `Sequential`, `ModuleList`, and `ModuleDict`, are inspected
@@ -61,7 +62,7 @@ Ordered mappings can contain tensors, modules, or nested mixtures of both.
 Each description includes shape, original dtype and device, element count,
 non-finite count (`null_count`), and finite-value mean, population standard
 deviation, minimum, quantiles, and maximum. Empty or entirely non-finite tensors
-print metadata only. Float64 precision is retained; other real dtypes use
+include metadata only. Float64 precision is retained; other real dtypes use
 float32 calculations. Large integers can therefore round. Inputs and gradients
 remain unchanged.
 
@@ -70,7 +71,9 @@ bytes, and non-tensor leaves are ignored. Iterators are consumed, and containers
 must be finite and acyclic. Complex, sparse, quantized, and meta tensors are
 rejected. Statistics use all finite values without sampling and can allocate
 substantial temporary storage or synchronize accelerators. Quantile support and
-size limits follow PyTorch. Descriptions are written to standard output.
+size limits follow PyTorch. The function writes no console output. Use
+`print(describe_tensor(obj), end="")` to display it, or pass the returned string
+to your logger. The result is an empty string when no tensors are found.
 
 ## Adaptive loss balancing
 

@@ -1,6 +1,6 @@
-"""Print finite-value statistics for tensors in nested structures."""
+"""Format finite-value statistics for tensors in nested structures."""
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Iterator, Mapping
 from typing import cast
 
 import torch
@@ -47,27 +47,29 @@ def _tensor_rows(
     return rows
 
 
-def _describe(obj: object, percentiles: tuple[float, ...], prefix: str) -> None:
-    """Traverse containers and print each tensor's statistics in encounter order."""
+def _describe(
+    obj: object, percentiles: tuple[float, ...], prefix: str
+) -> Iterator[str]:
+    """Yield formatted tensor descriptions in container encounter order."""
     match obj:
         case torch.Tensor():
             rows = _tensor_rows(obj, percentiles)
-            print(f"\n{prefix}")
+            yield f"\n{prefix}\n"
             for key, value in rows:
-                print(f"  {key:<12} {value}")
+                yield f"  {key:<12} {value}\n"
         case torch.nn.Module():
             for name, parameter in obj.named_parameters():
-                _describe(parameter, percentiles, f"{prefix}.{name}")
+                yield from _describe(parameter, percentiles, f"{prefix}.{name}")
             for name, buffer in obj.named_buffers():
-                _describe(buffer, percentiles, f"{prefix}.{name}")
+                yield from _describe(buffer, percentiles, f"{prefix}.{name}")
         case Mapping():
             for key, value in cast(Mapping[object, object], obj).items():
-                _describe(value, percentiles, f"{prefix}.{key}")
+                yield from _describe(value, percentiles, f"{prefix}.{key}")
         case str() | bytes():
             return
         case Iterable():
             for index, value in enumerate(cast(Iterable[object], obj)):
-                _describe(value, percentiles, f"{prefix}[{index}]")
+                yield from _describe(value, percentiles, f"{prefix}[{index}]")
 
 
 def describe_tensor(
@@ -75,8 +77,8 @@ def describe_tensor(
     *,
     percentiles: tuple[float, ...] = (0.25, 0.5, 0.75, 0.9, 0.99),
     prefix: str = "root",
-) -> None:
-    """Print tensor statistics recursively to standard output.
+) -> str:
+    """Return formatted tensor statistics recursively without printing.
 
     Modules expose their registered parameters and buffers recursively without
     executing forward or state-dict hooks. Shared parameters and shared buffers
@@ -89,19 +91,23 @@ def describe_tensor(
     iterators are consumed. Inputs and gradients are not modified.
 
     Statistics exclude NaN and infinities; ``null_count`` counts all such values.
-    Empty and entirely non-finite tensors print metadata only. Float64 precision
+    Empty and entirely non-finite tensors include metadata only. Float64 precision
     is retained; other real numeric dtypes use float32 for calculations, which
     can round large integers. Standard deviation uses the population convention.
 
     Quantiles use all finite values without sampling. Calculation allocates
     temporary tensors, may synchronize accelerators, and follows PyTorch's
-    quantile device and size limits. Output before a later failure is retained.
+    quantile device and size limits. A failed traversal returns no partial result.
 
     Args:
         obj: A tensor, module, or nested mappings and iterables containing them.
-        percentiles: Quantile fractions in [0, 1], printed in supplied order.
+        percentiles: Quantile fractions in [0, 1], formatted in supplied order.
             An empty tuple omits percentile rows.
-        prefix: Path printed for the root object.
+        prefix: Path used for the root object.
+
+    Returns:
+        Descriptions with a leading blank line per tensor and a trailing newline,
+        or an empty string when no tensors are found. Writes no console output.
 
     Raises:
         ValueError: If a percentile is non-finite or outside [0, 1], or a tensor
@@ -110,4 +116,4 @@ def describe_tensor(
     """
     if any(not 0 <= percentile <= 1 for percentile in percentiles):
         raise ValueError("percentiles must be finite fractions between 0 and 1")
-    _describe(obj, percentiles, prefix)
+    return "".join(_describe(obj, percentiles, prefix))
