@@ -21,6 +21,10 @@ from torch_harness.losses import (
     LossTarget,
     SuperLoss,
     UncertaintyWeighting,
+    stable_cross_entropy,
+    stable_distillation_cross_entropy,
+    stable_log_softmax,
+    stable_softmax,
     weighted_loss,
 )
 from torch_harness.runtime import replace_layers
@@ -70,6 +74,10 @@ __all__ = [
     "format_text_graph",
     "profile_inference",
     "replace_layers",
+    "stable_cross_entropy",
+    "stable_distillation_cross_entropy",
+    "stable_log_softmax",
+    "stable_softmax",
     "summarize_flops",
     "weighted_loss",
     "write_text_graph",

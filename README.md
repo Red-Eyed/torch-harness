@@ -140,6 +140,27 @@ task-agnostic, runs entirely in PyTorch, and has no SciPy or per-sample-state
 dependency. See the [component documentation](src/torch_harness/losses/super_loss/README.md)
 for parameter guidance and numerical details.
 
+## Stable softmax and cross-entropy
+
+`stable_cross_entropy` preserves the small loss and target gradient of confident
+predictions. `stable_distillation_cross_entropy` accepts student and teacher
+logits directly and preserves small student gradients near teacher agreement:
+
+```python
+import torch_harness as th
+
+loss = th.stable_cross_entropy(logits, targets, dim=-1)
+distillation = th.stable_distillation_cross_entropy(student_logits, teacher_logits)
+```
+
+`stable_log_softmax` and `stable_softmax` expose the underlying normalization.
+These opt-in functions implement [Barron et al. (2026)](https://arxiv.org/abs/2610.31642)
+using ordinary PyTorch operations. The default class axis is last; low-precision
+inputs compute and return FP32. Distillation detaches the teacher and supports
+first-order student gradients only. Compiled distillation requires backend-specific
+numerical validation. See the [component documentation](src/torch_harness/losses/stable_cross_entropy/README.md)
+for contracts, limitations, and the forward/backward benchmark.
+
 ## SafeBatchNorm
 
 `SafeBatchNorm` rejects a non-finite activation before it can corrupt BatchNorm

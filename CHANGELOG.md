@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.17.0]
+
+### New Features
+
+- Add opt-in `stable_log_softmax`, `stable_softmax`, `stable_cross_entropy`, and
+  `stable_distillation_cross_entropy` based on Barron et al. (2026), preserving
+  high-confidence gradients and small distillation gradients near teacher
+  agreement. Functions use a configurable class axis (last by default) and FP32
+  accumulation/output for FP16/BF16 inputs. Distillation detaches the teacher
+  and supports first-order student gradients only. Add forward/backward numerical
+  tests and a benchmark that rejects numerically invalid compiled variants.
+
 ## [0.16.0]
 
 ### New Features
