@@ -142,6 +142,24 @@ for parameter guidance and numerical details.
 
 ## Stable softmax and cross-entropy
 
+Replace selected PyTorch functional imports while keeping their signatures and
+defaults:
+
+```python
+from torch_harness.functional import cross_entropy, log_softmax, softmax
+from torch_harness import StableCrossEntropyLoss
+
+loss = cross_entropy(logits, targets, weight=class_weights, label_smoothing=0.1)
+criterion = StableCrossEntropyLoss(ignore_index=-100, label_smoothing=0.1)
+```
+
+The compatible functions use native class axes, reductions, output dtype and
+autocast behavior, class weights, ignored indices, and probability targets.
+`StableCrossEntropyLoss` inherits PyTorch's constructor and state-dict layout.
+The functions are also available as `th.cross_entropy`, `th.log_softmax`, and
+`th.softmax`. The functional namespace provides these three replacements;
+other PyTorch operations continue to come from PyTorch.
+
 `stable_cross_entropy` preserves the small loss and target gradient of confident
 predictions. `stable_distillation_cross_entropy` accepts student and teacher
 logits directly and preserves small student gradients near teacher agreement:
@@ -155,8 +173,9 @@ distillation = th.stable_distillation_cross_entropy(student_logits, teacher_logi
 
 `stable_log_softmax` and `stable_softmax` expose the underlying normalization.
 These opt-in functions implement [Barron et al. (2026)](https://arxiv.org/abs/2610.31642)
-using ordinary PyTorch operations. The default class axis is last; low-precision
-inputs compute and return FP32. Distillation detaches the teacher and supports
+using ordinary PyTorch operations. The explicit-axis `stable_*` functions default
+to the last class axis; low-precision inputs compute and return FP32.
+Distillation detaches the teacher and supports
 first-order student gradients only. Compiled distillation requires backend-specific
 numerical validation. See the [component documentation](src/torch_harness/losses/stable_cross_entropy/README.md)
 for contracts, limitations, and the forward/backward benchmark.

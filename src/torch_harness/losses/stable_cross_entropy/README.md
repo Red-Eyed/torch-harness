@@ -23,6 +23,69 @@ distillation.backward()
 Functions are exported from `torch_harness`, `torch_harness.losses`, and
 `torch_harness.losses.stable_cross_entropy`.
 
+## PyTorch-compatible API
+
+Use the compatible functional imports when replacing existing PyTorch calls:
+
+```python
+from torch_harness.functional import cross_entropy, log_softmax, softmax
+from torch_harness import StableCrossEntropyLoss
+
+loss = cross_entropy(
+    logits, targets, weight=class_weights, ignore_index=-100, label_smoothing=0.1
+)
+criterion = StableCrossEntropyLoss(
+    weight=class_weights, ignore_index=-100, reduction="mean", label_smoothing=0.1
+)
+loss = criterion(logits, targets)
+```
+
+These functions are also exported from the package root as `th.cross_entropy`,
+`th.log_softmax`, and `th.softmax`. This namespace contains only the three
+normalization/loss replacements; import other functional operations from PyTorch.
+
+`softmax(input, dim=None, _stacklevel=3, dtype=None)` and `log_softmax` preserve
+PyTorch's argument order, explicit input cast through `dtype`, output dtype,
+scalar/empty behavior, and deprecated implicit-dimension selection/warning.
+FP16/BF16 normalization computes internally in FP32 and casts back to the input
+or requested dtype. Softmax output dtype is unchanged by autocast.
+
+`cross_entropy(input, target, weight=None, size_average=None, ignore_index=-100,
+reduce=None, reduction="mean", label_smoothing=0.0)` accepts native shapes:
+unbatched `(C)`, batched `(N, C)`, and spatial `(N, C, ...)`. Targets can be
+indices with the class axis removed or floating probabilities of the input shape.
+It preserves class weighting, ignored labels, smoothing, reductions, and the
+deprecated flags' warning/precedence. Weighted index means divide by the sum of
+non-ignored target weights; probability-target means divide by item count.
+Probability targets are not silently normalized or range-validated, matching
+PyTorch. Gradients to probability targets and their class weights are preserved.
+
+Outside autocast, index losses keep the logits dtype. Under CPU/CUDA autocast,
+low-precision CE computation and output use FP32. Probability targets and weights
+follow native promotion. Returning gradients to FP16/BF16 input tensors still
+permits underflow at the input dtype's limit. This compatible dtype policy
+differs from the existing `stable_*` functions, which return FP32 for low-precision
+inputs regardless of autocast.
+
+`StableCrossEntropyLoss` directly subclasses `torch.nn.CrossEntropyLoss`. It
+inherits the native constructor, registered `weight` buffer, state-dict keys,
+device/dtype moves, and reduction settings. Native state dictionaries can be
+loaded directly. Existing `CrossEntropyLoss` type checks continue to work.
+Only `forward` is overridden. It supports ordinary higher derivatives.
+
+These APIs support dense finite tensors and preserve `__torch_function__`
+dispatch. Invalid targets and weights are rejected; exact error wording and
+bitwise equivalence with native arithmetic are not promised. Sparse/non-finite
+inputs, TorchScript/export, and numerical behavior under every compiler backend
+are outside the verified compatibility contract. CUDA tests are conditional;
+the development machine can verify only CPU behavior.
+
+The numerical improvement intentionally changes high-confidence values and
+gradients. Probability targets support the same call interface as PyTorch but
+cannot recover teacher logits already discarded by a prior softmax. Continue
+using `stable_distillation_cross_entropy(student_logits, teacher_logits)` for
+the paper's near-agreement cancellation fix.
+
 ## Contracts
 
 - `stable_log_softmax(logits, dim=-1)` excludes one selected maximum from the
@@ -93,7 +156,7 @@ tensors proportional to logits size. They do not fuse the output projection
 with cross-entropy or avoid materializing logits.
 
 Run `uv run benchmarks/stable_cross_entropy.py` to compare native, stable eager,
-and compiled stable forward and forward-plus-backward timings at explicit
+compatible stable eager, and compiled stable forward and forward-plus-backward timings at explicit
 small, medium, and vocabulary-sized FP32 shapes. CUDA is selected when available;
 otherwise CPU is used. The script excludes compilation/warmup, uses one CPU
 timer thread, reports timing dispersion, and reports CUDA peak temporary memory.

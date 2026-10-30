@@ -13,6 +13,7 @@ from torch import Tensor
 from torch.utils.benchmark import Timer
 
 from torch_harness import stable_cross_entropy, stable_distillation_cross_entropy
+from torch_harness.functional import cross_entropy as compatible_cross_entropy
 
 Objective = Callable[[Tensor, Tensor], Tensor]
 
@@ -89,6 +90,8 @@ def benchmark(include_compiled: bool = True) -> None:
     )
     for kind, native, stable in objectives:
         variants: list[tuple[str, Objective]] = [("native", native), ("stable", stable)]
+        if kind == "hard":
+            variants.append(("compatible stable", compatible_cross_entropy))
         if include_compiled:
             logger.info("Compiling and checking {}", kind)
             compiled = torch.compile(stable, fullgraph=True)

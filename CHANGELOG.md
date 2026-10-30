@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.18.0]
+
+### New Features
+
+- Add `torch_harness.functional.softmax`, `log_softmax`, and `cross_entropy`
+  with PyTorch-compatible signatures, default axes, output dtype/autocast
+  behavior, class weights, ignored indices, label smoothing, probability
+  targets, and legacy reduction flags. Export these functions at the package
+  root too. Add `StableCrossEntropyLoss`, inheriting the native constructor,
+  weight-buffer lifecycle, and state-dict layout. Preserve the existing
+  explicit-axis `stable_*` APIs and separate teacher-logits distillation loss.
+
 ## [0.17.0]
 
 ### New Features

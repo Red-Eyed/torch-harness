@@ -69,3 +69,59 @@ The compiler failure's root cause has not been established.
   precision, high confidence, near agreement, and large class counts.
 - The paper's grokking, slingshot, and generalization experiments have not been
   reproduced. No corresponding training-result claims are made.
+
+## 2026-10-30 — PyTorch-compatible replacements
+
+### Motivation and design
+
+The original functions require callers to change class axes, supported options,
+and low-precision output assumptions. Add a compatible functional interface
+without changing those existing APIs. Public functions live in
+`torch_harness.functional` and are also exported at the package root.
+
+Separate compatibility normalization from CE target/reduction handling. Reuse
+the stable normalization core, casting output to the native requested dtype.
+Use native `nll_loss` for index targets so ignored labels, target validation,
+class weighting, and weighted means retain native behavior. Add weighted uniform
+loss only when smoothing is enabled; probability targets use their own native
+per-item normalization and remain differentiable. Legacy flags and tensor
+override dispatch are handled at the functional boundary. CPU/CUDA autocast
+promotes low-precision CE inputs before normalization; the query retains a
+fallback for older supported PyTorch versions.
+
+`StableCrossEntropyLoss` directly inherits `nn.CrossEntropyLoss` and overrides
+only `forward`, retaining constructor, buffer, state-dict, and device/dtype
+lifecycle behavior. Logits-based distillation remains separate because a
+probability-target API cannot recover teacher-logit information.
+
+### Verified results
+
+- `uv sync --locked`, Ruff lint/format checks, Pyrefly (including the benchmark),
+  and `uv build --wheel` pass for version `0.18.0`.
+- Full suite: 517 passed, 9 CUDA skips. The new compatibility file contributes
+  251 passing cases and 6 CUDA skips. Tests compare forward values and backward
+  gradients with native PyTorch for index/probability targets, class weights,
+  smoothing, ignored indices, reductions/legacy flags, unbatched/spatial/strided
+  layouts, dtype casts, CPU autocast, mixed-dtype promotion, scalar/empty inputs,
+  all-ignored and zero-weight means, gradient checks including higher derivatives,
+  and error paths. Tests preserve the high-confidence numerical fix, native
+  parameter signatures, override dispatch, state serialization and dtype moves,
+  and a real optimizer step.
+- An explicit CPU Inductor check of compatible CE passes both forward and
+  backward comparisons to eager at margins 18, 40, and 80, with zero absolute
+  tolerance and `2e-5` relative tolerance. This covers the high-margin regression,
+  not every compiled combination of CE options.
+- `uv run benchmarks/stable_cross_entropy.py` completes on the same CPU setup
+  as above, including the compatible eager hard-target loss. At `(64, 32768)`,
+  median forward / forward-plus-backward times are 1.503 / 3.062 ms native,
+  2.776 / 4.241 ms explicit stable, and 2.781 / 4.230 ms compatible stable.
+  The compatible API adds no meaningful overhead in this particular workload;
+  this is not a general performance guarantee. Compiled distillation is still
+  rejected by the benchmark's existing numerical check.
+
+### Remaining limits
+
+CUDA behavior, all supported PyTorch versions, TorchScript/export, and arbitrary
+compiler option combinations have not been verified locally. Conditional CUDA
+parity tests are included. Dense finite inputs remain the supported numerical
+contract. No GPU speedup or new training-result claim is made.

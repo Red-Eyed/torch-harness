@@ -48,7 +48,8 @@ def test_base_package_without_optional_integrations() -> None:
 
 
 @pytest.mark.parametrize(
-    "namespace", ["layers", "losses", "runtime", "flops", "lightning", "onnx"]
+    "namespace",
+    ["layers", "losses", "runtime", "flops", "functional", "lightning", "onnx"],
 )
 def test_root_exports_match_namespaces(namespace: str) -> None:
     """Re-export every namespace's public utilities without wrapping objects."""

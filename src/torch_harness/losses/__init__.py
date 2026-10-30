@@ -7,6 +7,7 @@ from torch_harness.losses.adaptive_balancing import (
     weighted_loss,
 )
 from torch_harness.losses.stable_cross_entropy import (
+    StableCrossEntropyLoss,
     stable_cross_entropy,
     stable_distillation_cross_entropy,
     stable_log_softmax,
@@ -19,6 +20,7 @@ __all__ = [
     "BalancerConfig",
     "LossBalancer",
     "LossTarget",
+    "StableCrossEntropyLoss",
     "SuperLoss",
     "UncertaintyWeighting",
     "stable_cross_entropy",
